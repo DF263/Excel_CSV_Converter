@@ -1,0 +1,43 @@
+{
+  "name": "excel-csv-converter",
+  "version": "1.0.0",
+  "description": "Convert Excel (.xls/.xlsx) to CSV with filters",
+  "main": "main.js",
+  "author": "you",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron . --dev",
+    "build:win": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "fs-extra": "^11.2.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^31.2.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.example.excelcsv",
+    "productName": "Excel CSV Converter",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "renderer.js",
+      "style.css",
+      "icon.ico"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Excel → CSV Converter</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Excel → CSV Converter</h1>
+
+      <section>
+        <button id="btnPickFiles">📁 엑셀 파일 선택</button>
+        <div id="files" class="hint"></div>
+      </section>
+
+      <section>
+        <button id="btnPickOut">📂 출력 폴더 선택</button>
+        <div id="outDir" class="hint"></div>
+      </section>
+
+      <section class="options">
+        <label>
+          <input type="checkbox" id="optAscii" checked /> 영문(ASCII) 시트만
+          변환
+        </label>
+        <label>
+          <input type="checkbox" id="optOverwrite" /> 동일 이름 CSV 덮어쓰기
+        </label>
+      </section>
+
+      <section>
+        <button id="btnConvert" class="primary">🚀 변환 시작</button>
+      </section>
+
+      <div id="status" class="status"></div>
+      <pre id="log" class="log"></pre>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
