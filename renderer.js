@@ -54,11 +54,23 @@ el("btnConvert").addEventListener("click", async () => {
     return;
   }
 
-  const { converted, skippedSheets, errors } = res.summary;
-  appendLog(`성공: ${converted}`);
-  appendLog(`스킵(비영문 시트): ${skippedSheets}`);
+  const {
+    converted,
+    skippedSheets,
+    errors,
+    removedEmptyColumns,
+    removedKoreanColumns,
+  } = res.summary;
+  appendLog(`성공: ${converted}개 시트 변환`);
+  appendLog(`스킵(비영문 시트): ${skippedSheets}개`);
+  if (removedEmptyColumns > 0) {
+    appendLog(`제거된 공백 열: ${removedEmptyColumns}개`);
+  }
+  if (removedKoreanColumns > 0) {
+    appendLog(`제거된 한글 헤더 열: ${removedKoreanColumns}개`);
+  }
   if (errors.length) {
-    appendLog(`오류 파일: ${errors.length}`);
+    appendLog(`오류 파일: ${errors.length}개`);
     errors.forEach((e) => appendLog(`- ${e.file}: ${e.message}`));
   }
 

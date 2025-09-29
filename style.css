@@ -5,10 +5,9 @@ body {
 }
 .container {
   max-width: 700px;
-  margin: 24px auto;
+  margin: 0px auto;
   background: #fff;
   padding: 20px;
-  border-radius: 12px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
 }
 h1 {
@@ -76,6 +75,27 @@ button:hover {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   padding: 12px;
   border-radius: 8px;
-  height: 220px;
+  height: 175px;
   overflow: auto;
+}
+
+.auto-features {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.auto-features h3 {
+  margin: 0 0 8px 0;
+  color: #495057;
+  font-size: 16px;
+}
+
+.feature-summary {
+  margin: 0;
+  font-size: 14px;
+  color: #2e7d32;
+  line-height: 1.4;
 }

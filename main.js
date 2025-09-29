@@ -19,7 +19,7 @@ function createWindow() {
     },
   });
   win.loadFile("index.html");
-  // if (process.argv.includes("--dev")) win.webContents.openDevTools();
+  if (process.argv.includes("--dev")) win.webContents.openDevTools();
 }
 
 app.whenReady().then(createWindow);
@@ -55,6 +55,8 @@ ipcMain.handle("pick-output-dir", async () => {
 });
 
 const ASCII_VISIBLE_RE = /^[\x20-\x7E]+$/;
+const KOREAN_RE = /[가-힣]/;
+
 const sanitize = (name, fallback = "sheet") => {
   const n = (name || "")
     .trim()
@@ -62,6 +64,115 @@ const sanitize = (name, fallback = "sheet") => {
     .replace(/[^A-Za-z0-9._-]+/g, "");
   return n || fallback;
 };
+
+// 워크시트에서 범위 가져오기
+function getRange(ws) {
+  if (!ws["!ref"]) return null;
+  return XLSX.utils.decode_range(ws["!ref"]);
+}
+
+// 열이 비어있는지 확인 (헤더가 공백이거나 내용이 모두 비어있으면 true)
+function isEmptyColumn(ws, col) {
+  const range = getRange(ws);
+  if (!range) return true;
+
+  // 헤더(첫 번째 행) 확인
+  const headerAddr = XLSX.utils.encode_cell({ r: 0, c: col });
+  const headerCell = ws[headerAddr];
+
+  // 헤더가 없거나 비어있거나 공백만 있으면 빈 열로 간주
+  if (
+    !headerCell ||
+    headerCell.v === undefined ||
+    headerCell.v === null ||
+    String(headerCell.v).trim() === ""
+  ) {
+    return true;
+  }
+
+  // 헤더가 있으면 나머지 내용 확인 (헤더 제외)
+  for (let row = 1; row <= range.e.r; row++) {
+    const cellAddr = XLSX.utils.encode_cell({ r: row, c: col });
+    const cell = ws[cellAddr];
+    if (cell && cell.v !== undefined && cell.v !== null && cell.v !== "") {
+      return false;
+    }
+  }
+  return true;
+}
+
+// 헤더에 한글이 포함되어 있는지 확인
+function hasKoreanHeader(ws, col) {
+  const range = getRange(ws);
+  if (!range) return false;
+
+  const headerAddr = XLSX.utils.encode_cell({ r: 0, c: col });
+  const headerCell = ws[headerAddr];
+  if (!headerCell || !headerCell.v) return false;
+
+  return KOREAN_RE.test(String(headerCell.v));
+}
+
+// 워크시트에서 특정 열들을 제거
+function removeColumns(ws, columnsToRemove) {
+  if (!ws["!ref"] || columnsToRemove.length === 0) return ws;
+
+  const range = getRange(ws);
+  if (!range) return ws;
+
+  // 내림차순으로 정렬 (뒤에서부터 제거)
+  const sortedCols = [...columnsToRemove].sort((a, b) => b - a);
+
+  const newWs = {};
+  const newCells = {};
+
+  // 새로운 열 인덱스 매핑 생성
+  const colMapping = {};
+  let newColIndex = 0;
+
+  for (let oldCol = 0; oldCol <= range.e.c; oldCol++) {
+    if (!columnsToRemove.includes(oldCol)) {
+      colMapping[oldCol] = newColIndex;
+      newColIndex++;
+    }
+  }
+
+  // 모든 셀을 새로운 위치로 복사
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      if (columnsToRemove.includes(col)) continue;
+
+      const oldAddr = XLSX.utils.encode_cell({ r: row, c: col });
+      const newAddr = XLSX.utils.encode_cell({ r: row, c: colMapping[col] });
+
+      if (ws[oldAddr]) {
+        newCells[newAddr] = { ...ws[oldAddr] };
+      }
+    }
+  }
+
+  // 새로운 워크시트 생성
+  Object.assign(newWs, newCells);
+
+  // 새로운 범위 설정
+  const newRange = {
+    s: { r: range.s.r, c: 0 },
+    e: { r: range.e.r, c: newColIndex - 1 },
+  };
+
+  if (newColIndex > 0) {
+    newWs["!ref"] = XLSX.utils.encode_range(newRange);
+  }
+
+  // 기타 워크시트 속성 복사
+  Object.keys(ws).forEach((key) => {
+    if (key.startsWith("!") && key !== "!ref") {
+      newWs[key] = ws[key];
+    }
+  });
+
+  return newWs;
+}
 function ensureUnique(p) {
   if (!fs.existsSync(p)) return p;
   const { dir, name, ext } = path.parse(p);
@@ -95,7 +206,13 @@ ipcMain.handle("convert-excels", async (_evt, payload) => {
 
   await fs.ensureDir(outDir);
 
-  const summary = { converted: 0, skippedSheets: 0, errors: [] };
+  const summary = {
+    converted: 0,
+    skippedSheets: 0,
+    errors: [],
+    removedEmptyColumns: 0,
+    removedKoreanColumns: 0,
+  };
 
   for (const file of files) {
     try {
@@ -107,7 +224,40 @@ ipcMain.handle("convert-excels", async (_evt, payload) => {
           summary.skippedSheets++;
           continue;
         }
-        const ws = wb.Sheets[sheetName];
+
+        let ws = wb.Sheets[sheetName];
+        const range = getRange(ws);
+
+        if (range) {
+          const columnsToRemove = [];
+
+          // 제거할 열들 식별 (항상 적용)
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            let shouldRemove = false;
+
+            // 공백 열 체크 (항상 적용)
+            if (isEmptyColumn(ws, col)) {
+              shouldRemove = true;
+              summary.removedEmptyColumns++;
+            }
+
+            // 한글 헤더 열 체크 (항상 적용)
+            if (hasKoreanHeader(ws, col)) {
+              shouldRemove = true;
+              summary.removedKoreanColumns++;
+            }
+
+            if (shouldRemove) {
+              columnsToRemove.push(col);
+            }
+          }
+
+          // 열 제거 적용
+          if (columnsToRemove.length > 0) {
+            ws = removeColumns(ws, columnsToRemove);
+          }
+        }
+
         // to CSV
         const csv = XLSX.utils.sheet_to_csv(ws, {
           FS: delimiter,
