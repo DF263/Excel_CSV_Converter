@@ -15,13 +15,51 @@ function appendLog(line) {
   log.scrollTop = log.scrollHeight;
 }
 
+// 파일 경로들을 표시하는 함수
+function displayFilePaths(files) {
+  if (!files.length) {
+    el("files").textContent = "";
+    return;
+  }
+
+  // 파일 경로들을 줄바꿈으로 구분하여 표시
+  const pathText = files
+    .map((file) => {
+      // 파일명만 표시하고 전체 경로는 tooltip으로
+      const fileName = file.split("\\").pop().split("/").pop();
+      return fileName;
+    })
+    .join("\n");
+
+  el("files").textContent = `${files.length}개 파일 선택됨:\n${pathText}`;
+  el("files").title = files.join("\n"); // 전체 경로를 tooltip으로 표시
+}
+
+// 앱 시작 시 저장된 설정 불러오기
+async function loadSavedSettings() {
+  try {
+    const settings = await window.api.loadSettings();
+    if (settings.lastExcelFiles && settings.lastExcelFiles.length > 0) {
+      selectedFiles = settings.lastExcelFiles;
+      displayFilePaths(selectedFiles);
+    }
+    if (settings.lastOutputDir) {
+      outputDir = settings.lastOutputDir;
+      el("outDir").textContent = outputDir;
+    }
+  } catch (error) {
+    console.log("설정 불러오기 실패:", error);
+  }
+}
+
+// 페이지 로드 시 설정 불러오기
+document.addEventListener("DOMContentLoaded", loadSavedSettings);
+
 el("btnPickFiles").addEventListener("click", async () => {
   const r = await window.api.pickExcelFiles();
   if (!r.success) return;
   selectedFiles = r.files;
-  el("files").textContent = selectedFiles.length
-    ? `${selectedFiles.length}개 파일 선택됨`
-    : "";
+  displayFilePaths(selectedFiles);
 });
 
 el("btnPickOut").addEventListener("click", async () => {

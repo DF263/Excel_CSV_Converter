@@ -5,7 +5,7 @@ body {
 }
 .container {
   max-width: 700px;
-  margin: 0px auto;
+  margin: auto;
   background: #fff;
   padding: 20px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
@@ -47,6 +47,9 @@ button:hover {
   padding: 6px 8px;
   border-radius: 6px;
   min-height: 18px;
+  white-space: pre-line;
+  max-height: 100px;
+  overflow-y: auto;
 }
 .status {
   text-align: center;

@@ -2,13 +2,41 @@ const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs-extra");
 const XLSX = require("xlsx");
+const os = require("os");
 
 let win;
+
+// 설정 파일 경로
+const configPath = path.join(os.homedir(), ".excel-csv-converter.json");
+
+// 설정 불러오기
+function loadSettings() {
+  try {
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, "utf8"));
+    }
+  } catch (error) {
+    console.log("설정 파일 불러오기 실패:", error);
+  }
+  return {
+    lastExcelFiles: [],
+    lastOutputDir: "",
+  };
+}
+
+// 설정 저장
+function saveSettings(settings) {
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(settings, null, 2));
+  } catch (error) {
+    console.log("설정 파일 저장 실패:", error);
+  }
+}
 
 function createWindow() {
   win = new BrowserWindow({
     width: 720,
-    height: 820,
+    height: 850,
     resizable: false,
     title: "Excel → CSV Converter",
     icon: path.join(__dirname, "icon.ico"),
@@ -32,7 +60,13 @@ app.on("activate", () => {
 
 // ---------- IPC ----------
 
+// 설정 불러오기
+ipcMain.handle("load-settings", async () => {
+  return loadSettings();
+});
+
 ipcMain.handle("pick-excel-files", async () => {
+  const settings = loadSettings();
   const r = await dialog.showOpenDialog(win, {
     title: "엑셀 파일 선택",
     properties: ["openFile", "multiSelections"],
@@ -40,17 +74,33 @@ ipcMain.handle("pick-excel-files", async () => {
       { name: "Excel", extensions: ["xlsx", "xls"] },
       { name: "All", extensions: ["*"] },
     ],
+    defaultPath:
+      settings.lastExcelFiles.length > 0
+        ? path.dirname(settings.lastExcelFiles[0])
+        : undefined,
   });
   if (r.canceled) return { success: false };
+
+  // 선택된 파일 저장
+  settings.lastExcelFiles = r.filePaths;
+  saveSettings(settings);
+
   return { success: true, files: r.filePaths };
 });
 
 ipcMain.handle("pick-output-dir", async () => {
+  const settings = loadSettings();
   const r = await dialog.showOpenDialog(win, {
     title: "CSV 출력 폴더 선택",
     properties: ["openDirectory", "createDirectory"],
+    defaultPath: settings.lastOutputDir || undefined,
   });
   if (r.canceled) return { success: false };
+
+  // 선택된 폴더 저장
+  settings.lastOutputDir = r.filePaths[0];
+  saveSettings(settings);
+
   return { success: true, dir: r.filePaths[0] };
 });
 
